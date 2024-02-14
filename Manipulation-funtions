@@ -1,0 +1,108 @@
+def add_record():
+    global connector
+    global bk_name, bk_id, author_name, bk_status
+
+    if bk_status.get() == 'Issued':
+    card_id.set(issuer_card())
+    else:
+    card_id.set('N/A')
+
+    surety = mb.askyesno('Are you sure?',
+                   'Are you sure this is the data you want to enter?\nPlease note that Book ID cannot be changed in the future')
+
+    if surety:
+          try:
+                connector.execute(
+                 'INSERT INTO Library (BK_NAME, BK_ID, AUTHOR_NAME, BK_STATUS, CARD_ID) VALUES (?, ?, ?, ?, ?)',
+                        (bk_name.get(), bk_id.get(), author_name.get(), bk_status.get(), card_id.get()))
+                connector.commit()
+
+                clear_and_display()
+     
+                mb.showinfo('Record added', 'The new record was successfully added to your database')
+      except sqlite3.IntegrityError:
+                mb.showerror('Book ID already in use!',
+                              'The Book ID you are trying to enter is already in the database, please alter that book\'s record or check any discrepancies on your side')
+
+
+def update_record():
+   def update():
+       global bk_status, bk_name, bk_id, author_name, card_id
+       global connector, tree
+
+       if bk_status.get() == 'Issued':
+             card_id.set(issuer_card())
+       else:
+             card_id.set('N/A')
+
+       cursor.execute('UPDATE Library SET BK_NAME=?, BK_STATUS=?, AUTHOR_NAME=?, CARD_ID=? WHERE BK_ID=?', (bk_name.get(), bk_status.get(), author_name.get(), card_id.get(), bk_id.get()))
+        connector.commit()
+
+        clear_and_display()
+
+        edit.destroy()
+        bk_id_entry.config(state='normal')
+        clear.config(state='normal')
+
+ view_record()
+
+ bk_id_entry.config(state='disable')
+ clear.config(state='disable')
+
+ edit = Button(left_frame, text='Update Record', font=btn_font, bg=btn_hlb_bg, width=20, command=update)
+ edit.place(x=50, y=375)
+
+
+def remove_record():
+ if not tree.selection():
+  mb.showerror('Error!', 'Please select an item from the database')
+   return
+
+ current_item = tree.focus()
+ values = tree.item(current_item)
+ selection = values["values"]
+
+ cursor.execute('DELETE FROM Library WHERE BK_ID=?', (selection[1], ))
+ connector.commit()
+
+ tree.delete(current_item)
+
+ mb.showinfo('Done', 'The record you wanted deleted was successfully deleted.')
+
+ clear_and_display()
+
+
+def delete_inventory():
+ if mb.askyesno('Are you sure?', 'Are you sure you want to delete the entire inventory?\n\nThis command cannot be reversed'):
+  tree.delete(*tree.get_children())
+
+  cursor.execute('DELETE FROM Library')
+  connector.commit()
+else:
+  return
+
+
+def change_availability():
+ global card_id, tree, connector
+
+ if not tree.selection():
+  mb.showerror('Error!', 'Please select a book from the database')
+  return
+
+ current_item = tree.focus()
+ values = tree.item(current_item)
+ BK_id = values['values'][1]
+ BK_status = values["values"][3]
+
+ if BK_status == 'Issued':
+  surety = mb.askyesno('Is return confirmed?', 'Has the book been returned to you?')
+    if surety:
+       cursor.execute('UPDATE Library SET bk_status=?, card_id=? WHERE bk_id=?', ('Available', 'N/A', BK_id))
+       connector.commit()
+ else: mb.showinfo(
+      'Cannot be returned', 'The book status cannot be set to Available unless it has been returned')
+else:
+     cursor.execute('UPDATE Library SET bk_status=?, card_id=? where bk_id=?', ('Issued', issuer_card(), BK_id))
+     connector.commit()
+
+ clear_and_display()
